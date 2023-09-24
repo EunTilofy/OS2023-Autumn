@@ -231,6 +231,8 @@ gdb-multiarch /root/os/vmlinux
 
    g. 单步调试一次
 
+   ![image-20230924185947028](/Users/pac/Documents/2023-f/OS/OS2023-Autumn/Lab0/assets/image-20230924185947028.png)
+
    ![image-20230924182749461](/Users/pac/Documents/2023-f/OS/OS2023-Autumn/Lab0/assets/image-20230924182749461.png)
 
    h. 退出 QEMU

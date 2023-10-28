@@ -7,7 +7,7 @@
 ({                                                  \
     uint64 __v;                                     \
     asm volatile("csrr %[v]," #csr                  \
-                : [v] "=r" (__v) : : "memory")      \
+                : [v] "=r" (__v) : : "memory");     \
     __v;                                            \
 })
 

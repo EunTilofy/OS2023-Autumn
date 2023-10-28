@@ -8,21 +8,20 @@ struct sbiret sbi_ecall(int ext, int fid, uint64 arg0,
 {
 	struct sbiret result;
     __asm__ volatile (
-        "lw a7, %2\n"
-        "lw a6, %3\n"
-        "ld a0, %4\n"
-        "ld a1, %5\n"
-        "ld a2, %6\n"
-        "ld a3, %7\n"
-        "ld a4, %8\n"
-        "ld a5, %9\n"
-        "ecall\n"
-        "mv %0, a0\n"
-        "mv %1, a1\n"
-        : "=r" (result.error), "=r" (result.value)
-        : "m" (ext), "m" (fid), 
-          "m" (arg0), "m" (arg1), "m" (arg2), "m" (arg3), "m" (arg4), "m" (arg5)
-        : "memory"
+        "\tmv a7, %[ext]\n"
+        "\tmv a6, %[fid]\n"
+        "\tmv a0, %[arg0]\n"
+        "\tmv a1, %[arg1]\n"
+        "\tmv a2, %[arg2]\n"
+        "\tmv a3, %[arg3]\n"
+        "\tmv a4, %[arg4]\n"
+        "\tmv a5, %[arg5]\n"
+        "\tecall\n"
+        "\tmv %[err], a0\n"
+        "\tmv %[res], a1\n"
+        : [err] "=r" (result.error), [res] "=r" (result.value)
+        : [ext] "r" (ext), [fid] "r" (fid), 
+          [arg0] "r" (arg0), [arg1] "r" (arg1), [arg2] "r" (arg2), [arg3] "r" (arg3), [arg4] "r" (arg4), [arg5] "r" (arg5)
     );
     return result;
 }

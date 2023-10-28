@@ -1,15 +1,16 @@
-ASM_SRC		= $(sort $(wildcard *.S))
-C_SRC       = $(sort $(wildcard *.c))
-OBJ		    = $(patsubst %.S,%.o,$(ASM_SRC)) $(patsubst %.c,%.o,$(C_SRC))
+SRCS = $(shell find . -name *"*.S") $(shell find . -name "*.c")
+OBJS = $(addsuffix .o, $(basename $(SRCS)))
 
-all:$(OBJ)
+all: $(OBJS)
 
+%.o: %.S
+	@echo CC $< $@
+	@$(GCC) $(CFLAG) -c $< -o $@
+	
 
-%.o:%.S
-	${GCC}  ${CFLAG} -c $<
-
-%.o:%.c
-	${GCC}  ${CFLAG} -c $<
+%.o: %.c
+	@echo CC $< $@
+	@$(GCC) $(CFLAG) -c $< -o $@
 
 clean:
-	$(shell rm *.o 2>/dev/null)
+	-@rm *.o 2>/dev/null

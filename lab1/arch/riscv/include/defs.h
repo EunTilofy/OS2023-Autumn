@@ -3,12 +3,12 @@
 
 #include "types.h"
 
-#define csr_read(csr)                       \
-({                                          \
-    register uint64 __v;                    \
-    asm volatile("csrr %0," #csr            \
-                : "=r" (__v) : : "memory")  \
-    __v;                                    \
+#define csr_read(csr)                               \
+({                                                  \
+    uint64 __v;                                     \
+    asm volatile("csrr %[v]," #csr                  \
+                : [v] "=r" (__v) : : "memory")      \
+    __v;                                            \
 })
 
 #define csr_write(csr, val)                         \

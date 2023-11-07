@@ -35,6 +35,7 @@ _start:
     csrw sstatus, t1
 
     la sp, boot_stack_top
+    call task_init
     jal start_kernel  # jump to start_kernel
 
     .section .bss.stack

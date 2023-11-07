@@ -31,14 +31,11 @@ void task_init() {
     /* YOUR CODE HERE */
     mm_init();
     idle = (struct task_struct *)kalloc();
-
+    current = task[0] = idle;
     idle->state = TASK_RUNNING;
     idle->counter = 0;
     idle->priority = 0;
     idle->pid = 0;
-
-    (idle->thread).sp = PGSIZE + (long) idle;
-    current = task[0] = idle;
 
     // 1. 参考 idle 的设置, 为 task[1] ~ task[NR_TASKS - 1] 进行初始化
     // 2. 其中每个线程的 state 为 TASK_RUNNING, 此外，为了单元测试的需要，counter 和 priority 进行如下赋值：
@@ -50,13 +47,13 @@ void task_init() {
     /* YOUR CODE HERE */
     for(int i = 1; i < NR_TASKS; ++i) {
         task[i] = (struct task_struct *)kalloc();
+        if(!task[i]) return;
         task[i]->state = TASK_RUNNING;
         task[i]->counter = task_test_counter[i];
         task[i]->priority = task_test_priority[i];
         task[i]->pid = i;
-
-        (task[i]->thread).ra = (uint64)__dummy;
-        (task[i]->thread).sp = PGSIZE + (long) task[i];
+        task[i]->thread.ra = (uint64)__dummy;
+        task[i]->thread.sp = PGSIZE + (long)task[i];
     }
 
     printk("...proc_init done!\n");
@@ -84,9 +81,13 @@ extern void __switch_to(struct task_struct* prev, struct task_struct* next);
 
 void switch_to(struct task_struct* next) {
     /* YOUR CODE HERE */
+    // printk("Now exec switch_to!\n");
+    if(!current) return;
+    if(!next) return;
     if(current->pid != next->pid) {
         struct task_struct *prev = current;
         current = next;
+        // printk("go __switch_to\n");
         __switch_to(prev, next);
     }
 }
@@ -96,14 +97,23 @@ void do_timer(void) {
     // 2. 如果当前线程不是 idle 对当前线程的运行剩余时间减1 若剩余时间仍然大于0 则直接返回 否则进行调度
 
     /* YOUR CODE HERE */
-    if(current->pid == 0) schedule();
-    else if(!--(current->counter)) {
-        current->state = !TASK_RUNNING;
+    if(!current) return;
+    //printk("Enter do_timer!\n current->pid = %d\n", current->pid);
+    if(current->pid == 0) {
+        printk("Now run idle~\n");
         schedule();
+    }
+    else {
+        --current->counter;
+        printk("Current->counter : %d", current->counter);
+        if(current->counter == 0) {
+            current->state = !TASK_RUNNING;
+            schedule();
+        }
     }
 }
 
-#ifdef SJF
+#ifdef DSJF
 void schedule(void) {
     /* YOUR CODE HERE */
     int i;
@@ -134,7 +144,7 @@ void schedule(void) {
 }
 #endif
 
-#ifdef PRIORITY
+#ifdef DPRIORITY
 void schedule(void) {
     /* YOUR CODE HERE */
     int i;

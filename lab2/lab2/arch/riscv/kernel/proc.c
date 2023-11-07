@@ -31,6 +31,7 @@ void task_init() {
     /* YOUR CODE HERE */
     mm_init();
     idle = (struct task_struct *)kalloc();
+    if(!idle) return;
     current = task[0] = idle;
     idle->state = TASK_RUNNING;
     idle->counter = 0;
@@ -137,7 +138,7 @@ void switch_to(struct task_struct* next) {
         struct task_struct *prev = current;
         current = next;
         // printk("go __switch_to\n");
-        printk("before __switch-to / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
+        // printk("before __switch-to / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
         __switch_to(prev, next);
     }
 }
@@ -148,7 +149,7 @@ void do_timer(void) {
 
     /* YOUR CODE HERE */
     if(!current) return;
-    printk("do-timer / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
+    // printk("do-timer / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
     //printk("Enter do_timer!\n current->pid = %d\n", current->pid);
     if(current->pid == 0) {
         // printk("Now run idle~\n");
@@ -169,12 +170,11 @@ void do_timer(void) {
 void schedule(void) {
     /* YOUR CODE HERE */
     int next_id = -1;
-    uint64 min_time = (1ull << 50);
 
-    printk("schedule / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
+    // printk("schedule / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
 
     for(int i = 1; i < NR_TASKS; ++i) {
-        if(task[i]->counter > 0 && task[i]->state == TASK_RUNNING &&
+        if(task[i] && task[i]->counter > 0 && task[i]->state == TASK_RUNNING &&
             (next_id==-1 || task[i]->counter < task[next_id]->counter)) {
             next_id = i;
         }
@@ -183,11 +183,12 @@ void schedule(void) {
         printk("switch to [PID = %d COUNTER = %d]\n", next_id, task[next_id]->counter);
         switch_to(task[next_id]);
     } else {
-        for(int i = 1; i < NR_TASKS; ++i) {
+        for(int i = 1; i < NR_TASKS; ++i) if(task[i]) {
             task[i]->state = TASK_RUNNING;
             task[i]->counter = rand();
             printk("SET [PID = %d COUNTER = %d]\n", i, task[i]->counter);
         }
+        schedule();
     }
 }
 #endif
@@ -196,25 +197,28 @@ void schedule(void) {
 void schedule(void) {
     /* YOUR CODE HERE */
     int next_id = -1;
-    uint64 min_time = (1ull << 50);
 
-    printk("schedule / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
+    // printk("schedule / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
 
     for(int i = 1; i < NR_TASKS; ++i) {
-        if(task[i]->counter > 0 && task[i]->state == TASK_RUNNING &&
-            (next_id==-1 || task[i]->priority > task[next_id]->priority)) {
+        if(task[i] && task[i]->counter > 0 && task[i]->state == TASK_RUNNING &&
+            (next_id==-1 || task[i]->counter >= task[next_id]->counter)) {
             next_id = i;
         }
     }
     if(~next_id) {
-        printk("switch to [PID = %d PRIORITY = %d COUNTER = %d]\n", next_id, max_priority, task[next_id]->counter);
+        // for(int i = 1; i < NR_TASKS; ++i) {
+        //     task[i]->counter = (task[i]->counter>>1) + task[i]->priority;
+        // }
+        printk("switch to [PID = %d PRIORITY = %d COUNTER = %d]\n", next_id, task[next_id]->priority, task[next_id]->counter);
         switch_to(task[next_id]);
     } else {
-        for(int i = 1; i < NR_TASKS; ++i) {
+        for(int i = 1; i < NR_TASKS; ++i) if (task[i]) {
             task[i]->state = TASK_RUNNING;
-            task[i]->counter = rand();
+            task[i]->counter = task[i]->priority + 1;
             printk("SET [PID = %d PRIORITY = %d COUNTER = %d]\n", i, task[i]->priority, task[i]->counter);
         }
+        schedule();
     }
 }
 #endif

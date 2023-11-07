@@ -94,7 +94,6 @@ __dummy:
 
     .globl __switch_to
 __switch_to:
-    # save state to prev process
     mv t0, a0
     mv t1, a1
     sd ra, 48(t0)
@@ -112,20 +111,19 @@ __switch_to:
     sd s10, 144(t0)
     sd s11, 152(t0)
 
-    # restore state from next process
-    ld ra, 48(t0)
-    ld sp, 56(t0)
-    ld s0, 64(t0)
-    ld s1, 72(t0)
-    ld s2, 80(t0)
-    ld s3, 88(t0)
-    ld s4, 96(t0)
-    ld s5, 104(t0)
-    ld s6, 112(t0)
-    ld s7, 120(t0)
-    ld s8, 128(t0)
-    ld s9, 136(t0)
-    ld s10, 144(t0)
-    ld s11, 152(t0)
+    ld ra, 48(t1)
+    ld sp, 56(t1)
+    ld s0, 64(t1)
+    ld s1, 72(t1)
+    ld s2, 80(t1)
+    ld s3, 88(t1)
+    ld s4, 96(t1)
+    ld s5, 104(t1)
+    ld s6, 112(t1)
+    ld s7, 120(t1)
+    ld s8, 128(t1)
+    ld s9, 136(t1)
+    ld s10, 144(t1)
+    ld s11, 152(t1)
 
     ret

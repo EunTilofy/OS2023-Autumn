@@ -68,6 +68,7 @@ void dummy() {
     int last_counter = -1;
     while(1) {
         if ((last_counter == -1 || current->counter != last_counter) && current->counter > 0) {
+            printk("dummy : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
             if(current->counter == 1){
                 --(current->counter);   // forced the counter to be zero if this thread is going to be scheduled
             }                           // in case that the new counter is also 1, leading the information not printed.
@@ -134,6 +135,7 @@ void switch_to(struct task_struct* next) {
         struct task_struct *prev = current;
         current = next;
         // printk("go __switch_to\n");
+        printk("before __switch-to / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
         __switch_to(prev, next);
     }
 }
@@ -144,16 +146,18 @@ void do_timer(void) {
 
     /* YOUR CODE HERE */
     if(!current) return;
+    printk("do-timer / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
     //printk("Enter do_timer!\n current->pid = %d\n", current->pid);
     if(current->pid == 0) {
         // printk("Now run idle~\n");
         schedule();
     }
     else {
-        --current->counter;
-        // printk("Current->counter : %d", current->counter);
+        if(current->counter > 0) --current->counter;
+        //printk("Current pid : %d, Current->counter : %d, Current->state : %d\n", current->pid, current->counter, current->state);
         if(current->counter == 0) {
             current->state = !TASK_RUNNING;
+            //printk("call schedule! current->counter = %d %d\n", current->counter, task[1]->counter);
             schedule();
         }
     }
@@ -166,8 +170,10 @@ void schedule(void) {
     int next_thread_id;
     uint64 min_time = (1ull << 50);
 
+    printk("schedule / counter : %d %d %d %d\n", task[1]->counter, task[2]->counter, task[3]->counter, task[4]->counter);
+
     for(i = 1; i < NR_TASKS; i++) {
-        if(task[i]->counter)
+        if(task[i]->counter>0)
             break;
     }
     if(i == NR_TASKS) {

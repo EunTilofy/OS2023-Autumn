@@ -103,12 +103,12 @@ void do_timer(void) {
     }
 }
 
-#ifdef DSJF
+#ifdef SJF
 void schedule(void) {
     /* YOUR CODE HERE */
     int i;
     int next_thread_id;
-    uint64 min_time = INFINITE_TIME;
+    uint64 min_time = (1ull << 50);
 
     for(i = 1; i < NR_TASKS; i++) {
         if(task[i]->counter)
@@ -134,7 +134,7 @@ void schedule(void) {
 }
 #endif
 
-#ifdef DPRIORITY
+#ifdef PRIORITY
 void schedule(void) {
     /* YOUR CODE HERE */
     int i;

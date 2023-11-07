@@ -44,10 +44,7 @@ void test() {
     // printk("sd %lld\n", sstatus_0->sd);
     // csr_write(sscratch, 0x57);
     // printk("sscratch: 0x%x\n", csr_read(sscratch));
-    for(int i = 1; i <= 120000000; ++i) {
-        if(i == 120000000) {
-            printk("kernel is running!\n");
-            i = 0;
-        }
+    while(1) {
+        // printk("kernel is running!\n");
     }
 }

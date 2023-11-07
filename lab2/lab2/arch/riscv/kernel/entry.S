@@ -92,40 +92,40 @@ __dummy:
     csrw sepc, t0
     sret
 
-    .globl __switch_to
-__switch_to:
-    # save state to prev process
-    mv t0, a0
-    mv t1, a1
-    sd ra, 40(t0)
-    sd sp, 48(t0)
-    sd s0, 56(t0)
-    sd s1, 64(t0)
-    sd s2, 72(t0)
-    sd s3, 80(t0)
-    sd s4, 88(t0)
-    sd s5, 96(t0)
-    sd s6, 104(t0)
-    sd s7, 112(t0)
-    sd s8, 120(t0)
-    sd s9, 128(t0)
-    sd s10, 136(t0)
-    sd s11, 144(t0)
-
-    # restore state from next process
-    ld ra, 40(t1)
-    ld sp, 48(t1)
-    ld s0, 56(t1)
-    ld s1, 64(t1)
-    ld s2, 72(t1)
-    ld s3, 80(t1)
-    ld s4, 88(t1)
-    ld s5, 96(t1)
-    ld s6, 104(t1)
-    ld s7, 112(t1)
-    ld s8, 120(t1)
-    ld s9, 128(t1)
-    ld s10, 136(t1)
-    ld s11, 144(t1)
-
-    ret
+//    .globl __switch_to
+//__switch_to:
+//    # save state to prev process
+//    mv t0, a0
+//    mv t1, a1
+//    sd ra, 48(t0)
+//    sd sp, 56(t0)
+//    sd s0, 64(t0)
+//    sd s1, 72(t0)
+//    sd s2, 80(t0)
+//    sd s3, 88(t0)
+//    sd s4, 96(t0)
+//    sd s5, 104(t0)
+//    sd s6, 112(t0)
+//    sd s7, 120(t0)
+//    sd s8, 128(t0)
+//    sd s9, 136(t0)
+//    sd s10, 144(t0)
+//    sd s11, 152(t0)
+//
+//    # restore state from next process
+//    ld ra, 48(t0)
+//    ld sp, 56(t0)
+//    ld s0, 64(t0)
+//    ld s1, 72(t0)
+//    ld s2, 80(t0)
+//    ld s3, 88(t0)
+//    ld s4, 96(t0)
+//    ld s5, 104(t0)
+//    ld s6, 112(t0)
+//    ld s7, 120(t0)
+//    ld s8, 128(t0)
+//    ld s9, 136(t0)
+//    ld s10, 144(t0)
+//    ld s11, 152(t0)
+//
+//    ret

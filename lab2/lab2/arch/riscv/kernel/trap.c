@@ -9,7 +9,7 @@ void trap_handler(unsigned long scause, unsigned long sepc) {
     // `clock_set_next_event()` 见 4.5 节
     // 其他interrupt / exception 可以直接忽略
     if ((long) scause < 0 && (scause & ((1ul << 63) - 1)) == 5) {
-        printk("%s", "Get STI!\n");
+        // printk("%s", "Get STI!\n");
         clock_set_next_event();
         do_timer();
     }

@@ -54,6 +54,7 @@ void task_init() {
         task[i]->pid = i;
         task[i]->thread.ra = (uint64)__dummy;
         task[i]->thread.sp = PGSIZE + (long)task[i];
+        // printk("task[%d] address = %x\n", i, task[i]);
     }
 
     printk("...proc_init done!\n");
@@ -77,13 +78,58 @@ void dummy() {
     }
 }
 
-extern void __switch_to(struct task_struct* prev, struct task_struct* next);
+void __switch_to(struct task_struct* prev, struct task_struct* next) {
+    __asm__ volatile (
+        "\tsd sp, %[prev_sp]\n"
+        "\tsd ra, %[prev_ra]\n"
+        "\tsd s0, %[prev_s0]\n"
+        "\tsd s1, %[prev_s1]\n"
+        "\tsd s2, %[prev_s2]\n"
+        "\tsd s3, %[prev_s3]\n"
+        "\tsd s4, %[prev_s4]\n"
+        "\tsd s5, %[prev_s5]\n"
+        "\tsd s6, %[prev_s6]\n"
+        "\tsd s7, %[prev_s7]\n"
+        "\tsd s8, %[prev_s8]\n"
+        "\tsd s9, %[prev_s9]\n"
+        "\tsd s10, %[prev_s10]\n"
+        "\tsd s11, %[prev_s11]\n"
+    :   [prev_sp] "=m" (prev->thread.sp),     [prev_ra] "=m" (prev->thread.ra),     [prev_s0] "=m" (prev->thread.s[0]),
+        [prev_s1] "=m" (prev->thread.s[1]),   [prev_s2] "=m" (prev->thread.s[2]),   [prev_s3] "=m" (prev->thread.s[3]),
+        [prev_s4] "=m" (prev->thread.s[4]),   [prev_s5] "=m" (prev->thread.s[5]),   [prev_s6] "=m" (prev->thread.s[6]),
+        [prev_s7] "=m" (prev->thread.s[7]),   [prev_s8] "=m" (prev->thread.s[8]),   [prev_s9] "=m" (prev->thread.s[9]),
+        [prev_s10] "=m" (prev->thread.s[10]),  [prev_s11] "=m" (prev->thread.s[11])
+    :
+    );
+    __asm__ volatile (
+        "\tld ra, %[next_ra]\n"
+        "\tld sp, %[next_sp]\n"
+        "\tld s0, %[next_s0]\n"
+        "\tld s1, %[next_s1]\n"
+        "\tld s2, %[next_s2]\n"
+        "\tld s3, %[next_s3]\n"
+        "\tld s4, %[next_s4]\n"
+        "\tld s5, %[next_s5]\n"
+        "\tld s6, %[next_s6]\n"
+        "\tld s7, %[next_s7]\n"
+        "\tld s8, %[next_s8]\n"
+        "\tld s9, %[next_s9]\n"
+        "\tld s10, %[next_s10]\n"
+        "\tld s11, %[next_s11]\n"
+    ::  [next_sp] "m" (next->thread.sp),     [next_ra] "m" (next->thread.ra),     [next_s0] "m" (next->thread.s[0]),
+        [next_s1] "m" (next->thread.s[1]),   [next_s2] "m" (next->thread.s[2]),   [next_s3] "m" (next->thread.s[3]),
+        [next_s4] "m" (next->thread.s[4]),   [next_s5] "m" (next->thread.s[5]),   [next_s6] "m" (next->thread.s[6]),
+        [next_s7] "m" (next->thread.s[7]),   [next_s8] "m" (next->thread.s[8]),   [next_s9] "m" (next->thread.s[9]),
+        [next_s10] "m" (next->thread.s[10]),  [next_s11] "m" (next->thread.s[11])
+    );
+}
 
 void switch_to(struct task_struct* next) {
     /* YOUR CODE HERE */
     // printk("Now exec switch_to!\n");
     if(!current) return;
     if(!next) return;
+    // printk("next pid = %d, address = %x", next->pid, next);
     if(current->pid != next->pid) {
         struct task_struct *prev = current;
         current = next;
@@ -100,12 +146,12 @@ void do_timer(void) {
     if(!current) return;
     //printk("Enter do_timer!\n current->pid = %d\n", current->pid);
     if(current->pid == 0) {
-        printk("Now run idle~\n");
+        // printk("Now run idle~\n");
         schedule();
     }
     else {
         --current->counter;
-        printk("Current->counter : %d", current->counter);
+        // printk("Current->counter : %d", current->counter);
         if(current->counter == 0) {
             current->state = !TASK_RUNNING;
             schedule();

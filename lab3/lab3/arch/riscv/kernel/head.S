@@ -50,6 +50,8 @@ relocate:
 
     # set satp with early_pgtbl
     la t0, early_pgtbl
+    li t1, 0xffffffdf80000000 # PA2VA_OFFSET  
+    sub t0, t0, t1
     li t1, 8
     slli t1, t1, 60     # mode 部分设置为 8
     srli t0, t0, 12     # PPN 部分设置为页表物理地址右移 12 位

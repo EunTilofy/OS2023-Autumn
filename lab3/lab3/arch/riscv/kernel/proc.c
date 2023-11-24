@@ -29,7 +29,7 @@ void task_init() {
     // 5. 将 current 和 task[0] 指向 idle
 
     /* YOUR CODE HERE */
-    mm_init();
+    // mm_init();
     idle = (struct task_struct *)kalloc();
     if(!idle) return;
     current = task[0] = idle;

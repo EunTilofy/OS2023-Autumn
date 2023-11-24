@@ -18,14 +18,12 @@ void setup_vm(void) {
         低 30 bit 作为 页内偏移 这里注意到 30 = 9 + 9 + 12， 即我们只使用根页表， 根页表的每个 entry 都对应 1GB 的区域。 
     3. Page Table Entry 的权限 V | R | W | X 位设置为 1
     */
+    memset(early_pgtbl, 0x0, PGSIZE);
     unsigned long PA = PHY_START;
     unsigned long VA = VM_START;
-    int index;
-    index = (PA >> 30) & 0x1ff;
-    early_pgtbl[index] = ((PA >> 12) << 10) | 0xf;
-    index = (VA >> 30) & 0x1ff;
-    early_pgtbl[index] = ((PA >> 12) << 10) | 0xf;
-    printk("...setup_vm\n");
+    early_pgtbl[(PA >> 30) & 0x1ff] = (((PA >> 30) & 0x3ffffff) << 28) | 0xf;
+    early_pgtbl[(VA >> 30) & 0x1ff] = (((PA >> 30) & 0x3ffffff) << 28) | 0xf;
+    printk("...setup_vm done!\n");
 }
 
 /* swapper_pg_dir: kernel pagetable 根目录， 在 setup_vm_final 进行映射。 */

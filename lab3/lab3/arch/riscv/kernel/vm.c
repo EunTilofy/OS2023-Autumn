@@ -3,11 +3,6 @@
 /* early_pgtbl: 用于 setup_vm 进行 1GB 的 映射。 */
 unsigned long early_pgtbl[512] __attribute__((__aligned__(0x1000)));
 
-extern char _stext[];
-extern char _srodata[];
-extern char _etext[];
-extern char _erodata[];
-extern char _sdata[];
 
 void setup_vm(void) {
     /* 
@@ -19,30 +14,19 @@ void setup_vm(void) {
     3. Page Table Entry 的权限 V | R | W | X 位设置为 1
     */
     memset(early_pgtbl, 0x0, PGSIZE);
-    unsigned long PA = PHY_START;
-    unsigned long VA = VM_START;
-    early_pgtbl[(PA >> 30) & 0x1ff] = (((PA >> 30) & 0x3ffffff) << 28) | 0xf;
-    early_pgtbl[(VA >> 30) & 0x1ff] = (((PA >> 30) & 0x3ffffff) << 28) | 0xf;
+    uint64 PA = PHY_START;
+    uint64 VA = VM_START;
+    early_pgtbl[VPN2(PA)] = ((PA >> 12) << 10) | 0xf;
+    early_pgtbl[VPN2(VA)] = ((PA >> 12) << 10) | 0xf;
     printk("...setup_vm done!\n");
 }
 
 /* swapper_pg_dir: kernel pagetable 根目录， 在 setup_vm_final 进行映射。 */
 unsigned long  swapper_pg_dir[512] __attribute__((__aligned__(0x1000)));
 
-void MMU(uint64 vaddr, char *msg)
-{
-    unsigned long *second_pgtbl;
-    unsigned long *third_pgtbl;
-
-    int vpn2 = (vaddr >> 30) & 0x1ff;
-    int vpn1 = (vaddr >> 21) & 0x1ff;
-    int vpn0 = (vaddr >> 12) & 0x1ff;
-
-    second_pgtbl = (uint64 *)(((swapper_pg_dir[vpn2] >> 10) << 12) + PA2VA_OFFSET);
-    third_pgtbl = (uint64 *)(((second_pgtbl[vpn1] >> 10) << 12) + PA2VA_OFFSET);
-    uint64 paddr = (third_pgtbl[vpn0] >> 10 << 12) | (0xfff & vaddr);
-    printk ("%s va = %lx  pa = %lx\n", msg, vaddr, paddr);
-}
+extern char _stext[];
+extern char _srodata[];
+extern char _sdata[];
 
 void setup_vm_final(void) {
     memset(swapper_pg_dir, 0x0, PGSIZE);
@@ -50,36 +34,28 @@ void setup_vm_final(void) {
     // No OpenSBI mapping required
 
     // mapping kernel text X|-|R|V
-    create_mapping(swapper_pg_dir, (uint64)_stext, (uint64)_stext - PA2VA_OFFSET, (uint64)(_etext - _stext), 11);
+    create_mapping(swapper_pg_dir, (uint64)_stext, (uint64)_stext - PA2VA_OFFSET, (_srodata - _stext), 0xb);
 
     // mapping kernel rodata -|-|R|V
-    create_mapping(swapper_pg_dir, (uint64)_srodata, (uint64)_srodata - PA2VA_OFFSET, (uint64)(_erodata - _srodata), 3);
-    //MMU((uint64)_srodata);
+    create_mapping(swapper_pg_dir, (uint64)_srodata, (uint64)_srodata - PA2VA_OFFSET, (_sdata - _srodata), 0x3);
+
     // mapping other memory -|W|R|V
-    create_mapping(swapper_pg_dir, (uint64)_sdata, (uint64)_sdata- PA2VA_OFFSET, PHY_END + PA2VA_OFFSET - (uint64)_sdata, 7);
+    create_mapping(swapper_pg_dir, (uint64)_sdata, (uint64)_sdata - PA2VA_OFFSET, PHY_SIZE - (_sdata - _stext), 0x7);
 
     // set satp with swapper_pg_dir
-    uint64 _satp = 0x8000000000000000 | (((uint64)swapper_pg_dir - PA2VA_OFFSET) >> 12);
+    uint64 _satp = (((uint64)swapper_pg_dir - PA2VA_OFFSET) >> 12) | (0x8000000000000000);
     csr_write(satp, _satp);
-
-    MMU((uint64)_stext, "[Check] _stext:");
-    MMU((uint64)_srodata, "[Check] _srodata:");
-    MMU((uint64)_sdata, "[Check] _sdata:");
     
-    // YOUR CODE HERE
     // flush TLB
     asm volatile("sfence.vma zero, zero");
 
-    // ------------ Test Code Begin ------------
-    // unsigned long int *p = 0xffffffe000202000;
-    // unsigned long int raw = *p;
-    // *p = raw;
-    // ------------  Test Code End  ------------
+    // flush icache
+    asm volatile("fence.i");
     return;
 }
 
 
-/* 创建多级页表映射关系 */
+/**** 创建多级页表映射关系 ****/
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
     /*
     pgtbl 为根页表的基地址
@@ -90,37 +66,27 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
     创建多级页表的时候可以使用 kalloc() 来获取一页作为页表目录
     可以使用 V bit 来判断页表项是否存在
     */
-    // va: 9 | 9 | 9 | 12
-    uint64 *second_pgtbl;
-    uint64 *third_pgtbl;
-    int i = sz / PGSIZE + 1;
-
-    while (i--)
-    {
-        int vpn2 = (va >> 30) & 0x1ff;
-        int vpn1 = (va >> 21) & 0x1ff;
-        int vpn0 = (va >> 12) & 0x1ff;
-        // top page table
-        if(pgtbl[vpn2] & 0x1)
-            second_pgtbl = (uint64 *)((((uint64)pgtbl[vpn2] >> 10) << 12) + PA2VA_OFFSET);
-        else
-        {
-            second_pgtbl = (uint64 *)kalloc();
-            pgtbl[vpn2] = ((((uint64)second_pgtbl - PA2VA_OFFSET) >> 12) << 10) | 0x1;
+    uint64 *now_pgtbl, *nex_pgtbl;
+    for(int i = 0, num = sz / PGSIZE; i < num; ++i, va += PGSIZE, pa += PGSIZE) {
+        uint64 vpn2 = VPN2(va), vpn1 = VPN1(va), vpn0 = VPN0(va);
+        now_pgtbl = pgtbl;
+        // first level
+        if(now_pgtbl[vpn2] & 0x1) {
+            now_pgtbl = (uint64 *)((((uint64)now_pgtbl[vpn2] >> 10) << 12) + PA2VA_OFFSET);
+        } else {
+            nex_pgtbl = (uint64 *)kalloc();
+            now_pgtbl[vpn2] = ((((uint64)nex_pgtbl - PA2VA_OFFSET) >> 12) << 10) | 0x1;
+            now_pgtbl = nex_pgtbl;
         }
-        // second page table
-        if(second_pgtbl[vpn1] & 0x1)
-            third_pgtbl = (uint64 *)((((uint64)second_pgtbl[vpn1] >> 10) << 12) + PA2VA_OFFSET);
-        else
-        {
-            third_pgtbl = (uint64 *)kalloc();
-            second_pgtbl[vpn1] = ((((uint64)third_pgtbl - PA2VA_OFFSET) >> 12) << 10) | 0x1;
+        // second level
+        if(now_pgtbl[vpn1] & 0x1) {
+            now_pgtbl = (uint64 *)((((uint64)now_pgtbl[vpn1] >> 10) << 12) + PA2VA_OFFSET);
+        } else {
+            nex_pgtbl = (uint64 *)kalloc();
+            now_pgtbl[vpn1] = ((((uint64)nex_pgtbl - PA2VA_OFFSET) >> 12) << 10) | 0x1;
+            now_pgtbl = nex_pgtbl;
         }
-        // third page table
-        if( !(third_pgtbl[vpn0] & 0x1) )
-            third_pgtbl[vpn0] = ((pa >> 12) << 10) | perm;
-        
-        va += PGSIZE;
-        pa += PGSIZE;
+        // third level
+        now_pgtbl[vpn0] = ((pa >> 12) << 10) | perm | 0x1;
     }
 }

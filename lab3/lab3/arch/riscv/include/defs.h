@@ -19,9 +19,9 @@
 
 #define PA2VA_OFFSET (VM_START - PHY_START)
 
-#define VPN0(va) (((uint64)(va) >> 12) & 0x1ff)
-#define VPN1(va) (((uint64)(va) >> 21) & 0x1ff)
-#define VPN2(va) (((uint64)(va) >> 30) & 0x1ff)
+#define VPN0(addr) (((uint64)(addr) >> 12) & 0x1ff)
+#define VPN1(addr) (((uint64)(addr) >> 21) & 0x1ff)
+#define VPN2(addr) (((uint64)(addr) >> 30) & 0x1ff)
 
 #define csr_read(csr)                               \
 ({                                                  \

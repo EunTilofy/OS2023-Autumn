@@ -12,6 +12,6 @@ void trap_handler(unsigned long scause, unsigned long sepc) {
         // printk("%s", "Get STI!\n");
         clock_set_next_event();
         do_timer();
-        printk("[S] Supervisor Mode Timer Interrupt!\n");
+        // printk("[S] Supervisor Mode Timer Interrupt!\n");
     }
 }

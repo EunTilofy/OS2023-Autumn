@@ -50,6 +50,14 @@ _traps:
     call trap_handler
 
     ld t0, 0(sp)
+
+    # temporarily add 4 to sepc if it's not clock trap
+    li t1, 0x8000000000000005
+    csrr a0, scause
+    beq a0, t1, _csrwrite
+    addi t0, t0, 4
+
+_csrwrite:
     csrw sepc, t0
 
     ld x1, 8(sp)

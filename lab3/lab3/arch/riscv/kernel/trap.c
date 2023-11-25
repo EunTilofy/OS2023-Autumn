@@ -13,5 +13,7 @@ void trap_handler(unsigned long scause, unsigned long sepc) {
         clock_set_next_event();
         do_timer();
         // printk("[S] Supervisor Mode Timer Interrupt!\n");
+    } else {
+        printk("scause = %lx, sepc = %llx\n", scause, sepc);
     }
 }

@@ -14,21 +14,14 @@ struct pt_regs {
 extern struct task_struct* current;
 
 void syscall(struct pt_regs* regs) {
-    if (regs->x[17] == SYS_WRITE) {
-        if (regs->x[10] == 1) {
-            char* buf = (char*)regs->x[11];
-            for (int i = 0; i < regs->x[12]; i++) {
-                printk("%c", buf[i]);
-            }
+    if(regs->x[17]==SYS_WRITE) {
+        if(regs->x[10]) {
+            for(int i = 0; i < regs->x[12]; ++i)
+                printk("%c", ((char*)(regs->x[11]))[i]);
             regs->x[10] = regs->x[12];
-        } else {
-            printk("not support fd = %d\n", regs->x[10]);
-            regs->x[10] = -1;
         }
-    } else if (regs->x[17] == SYS_GETPID) {
+    } else if(regs->x[17] == SYS_GETPID) {
         regs->x[10] = current->pid;
-    } else {
-        printk("not support syscall id = %d\n", regs->x[17]);
     }
     regs->sepc += 4;
 }

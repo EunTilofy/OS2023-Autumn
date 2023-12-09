@@ -81,14 +81,23 @@ void task_init() {
         uint64_t va = USER_END - STACK_SIZE;
         uint64_t pa = (uint64)(task[i]->thread_info.user_sp) - PA2VA_OFFSET;
         create_mapping(task[i]->pgd, va, pa, STACK_SIZE, 0x17);
-
                 
-        #define ELF
+        // #define ELF
         #ifndef ELF
 
+        #define MIN(a, b) ((a) < (b) ? (a) : (b))
+        #define CEIL(sza, szb) ((((sza) + ((szb) - 1)) & (~((szb) - 1))) / PGSIZE)
         va = USER_START;
-        pa = (uint64)(_sramdisk) - PA2VA_OFFSET;
-        create_mapping(task[i]->pgd, va, pa, UAPP_SIZE, 0x1f);
+		int n_pages = 32;
+		void *uapp_pt = _sramdisk;
+		while (n_pages--) {
+			uint64_t npa = kalloc();
+			uint64_t pa = npa - PA2VA_OFFSET;
+			create_mapping(task[i]->pgd, va, pa, PGSIZE, 0x1f);
+			memcpy((void *) npa, uapp_pt, PGSIZE);
+			uapp_pt += PGSIZE;
+			va += PGSIZE;
+		}
 
         #else
 
@@ -146,7 +155,7 @@ void task_init() {
         #endif
 
         uint64 satp = csr_read(satp);
-        satp = (satp >> 44) << 44; // 清空 PPN
+        satp = (satp >> 44) << 44;
         satp |= ((uint64)(task[i]->pgd) - PA2VA_OFFSET) >> 12;
         task[i]->satp = satp;
 

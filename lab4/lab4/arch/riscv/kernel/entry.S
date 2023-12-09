@@ -1,19 +1,31 @@
 .section .text.entry
 
-#define context_size 256
+#define context_size 512
     .align 2
     .globl _traps 
 _traps:
 
-    csrr t0, sscratch
-    beq t0, x0, _ignore_switch
-    csrw sscratch, sp
-    mv sp, t0
+    # swap sp and sscratch
+    csrrw sp, sscratch, sp
+    beqz sp, _ignore_switch
+
+    csrrw t0, sscratch, t0
+    addi sp, sp, -context_size
+    sd t0, 16(sp)
+    csrrw t0, sscratch, t0
+
+    j _start_save_context
 
 _ignore_switch:
-
-    # allocate context struct
+    
+    # just read back current sp
+    csrr sp, sscratch
     addi sp, sp, -context_size
+    sd x0, 16(sp)
+
+_start_save_context:
+
+    csrw sscratch, x0
     
     sd x1, 8(sp)
     sd x3, 24(sp)
@@ -49,11 +61,13 @@ _ignore_switch:
     # save sepc
     csrr t0, sepc
     sd t0, 0(sp)
+    sd t0, 256(sp)
 
     csrr t0, scause
     mv a0, t0
     csrr t0, sepc
     mv a1, t0
+    mv a2, sp
     call trap_handler
 
     ld t0, 0(sp)
@@ -66,6 +80,19 @@ _ignore_switch:
 
 _csrwrite:
     csrw sepc, t0
+
+    ld t0, 16(sp)
+    addi t1, sp, context_size
+    sd t1, 16(sp)
+    beqz t0, _restore_cont
+    
+    # restore sscratch
+    addi sp, sp, context_size
+    csrw sscratch, sp
+    addi sp, sp, -context_size
+    sd t0, 16(sp)
+
+_restore_cont:
 
     ld x1, 8(sp)
     ld x3, 24(sp)
@@ -97,28 +124,24 @@ _csrwrite:
     ld x29, 232(sp)
     ld x30, 240(sp)
     ld x31, 248(sp)
-    
-    addi sp, sp, context_size
-    csrr t0, sscratch
-    beq t0, x0, _traps_sret
-    csrw sscratch, sp
-    mv sp, t0
 
 _traps_sret:
+
+    # resume sp
+    ld sp, 16(sp)
     sret
 
     .globl __dummy
 __dummy:
     csrr t0, sscratch
     csrw sscratch, sp
-    la t0, dummy
-    csrw sepc, t0
+    mv sp, t0;
+    csrwi sepc, 0
     sret
 
     .globl __switch_to
 __switch_to:
     mv t0, a0
-    mv t1, a1
     sd ra, 48(t0)
     sd sp, 56(t0)
     sd s0, 64(t0)
@@ -142,6 +165,7 @@ __switch_to:
     csrr t1, satp
     sd t1,184(a0)
 
+    mv t1, a1
     ld ra, 48(t1)
     ld sp, 56(t1)
     ld s0, 64(t1)

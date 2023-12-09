@@ -29,7 +29,7 @@ struct thread_struct {
 
 /* 线程数据结构 */
 struct task_struct {
-    struct thread_info* thread_info;
+    struct thread_info thread_info;
     uint64 state;    // 线程状态
     uint64 counter;  // 运行剩余时间
     uint64 priority; // 运行优先级 1最低 10最高

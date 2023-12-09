@@ -1,5 +1,6 @@
 #include "printk.h"
 #include "proc.h"
+#include "defs.h"
 #include "clock.h"
 
 #define SYS_WRITE   64
@@ -37,10 +38,12 @@ void trap_handler(uint64 scause, uint64 sepc, struct pt_regs* regs) {
         // printk("%s", "Get STI!\n");
         clock_set_next_event();
         do_timer();
+        return ;
         // printk("[S] Supervisor Mode Timer Interrupt!\n");
     } else if (scause== 8) {
         syscall(regs);
         return;
     }
-    printk("Unhandled trap: scause = %lx, sepc = %llx", scause, sepc);
+    uint64 stval = csr_read(stval);
+    printk("Unhandled trap: scause = %lx, sepc = %llx, stval = %llx\n", scause, sepc, stval);
 }

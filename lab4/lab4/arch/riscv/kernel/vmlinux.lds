@@ -62,7 +62,7 @@ SECTIONS
         . = ALIGN(0x1000);
         _sramdisk = .;
         *(.uapp .uapp*)
-        _eramdisk = .;
+        _eramdisk = _sramdisk + 0x1000000;
         . = ALIGN(0x1000);
 
     } >ramv AT>ram

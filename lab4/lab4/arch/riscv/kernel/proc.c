@@ -6,6 +6,12 @@
 #include "printk.h"
 #include "test.h"
 #include "vm.h"
+#include <elf.h>
+
+# define Elf_Ehdr Elf64_Ehdr
+# define Elf_Phdr Elf64_Phdr
+# define Elf_Half Elf64_Half
+# define Elf_Off Elf64_Off
 
 //arch/riscv/kernel/proc.c
 
@@ -18,6 +24,7 @@ struct task_struct* task[NR_TASKS]; // 线程数组, 所有的线程都保存在
 /**
  * new content for unit test of 2023 OS lab2
 */
+
 extern uint64 task_test_priority[]; // test_init 后, 用于初始化 task[i].priority 的数组
 extern uint64 task_test_counter[];  // test_init 后, 用于初始化 task[i].counter  的数组
 
@@ -26,6 +33,7 @@ extern char _eramdisk[];
 extern unsigned long swapper_pg_dir[];
 
 void task_init() {
+    printk("Entering task init\n");
     test_init(NR_TASKS);
     // 1. 调用 kalloc() 为 idle 分配一个物理页
     // 2. 设置 state 为 TASK_RUNNING;
@@ -63,22 +71,84 @@ void task_init() {
         task[i]->pgd = (unsigned long*)kalloc();
         memcpy(task[i]->pgd, swapper_pg_dir, PGSIZE);
         task[i]->thread.sp = (uint64_t)task[i] + PGSIZE;
-        task[i]->thread_info->kernel_sp = (uint64_t)task[i] + PGSIZE;
-        task[i]->thread_info->user_sp = (uint64_t)kalloc();
+        // task[i]->thread_info = (struct thread_info *) kalloc();
+        task[i]->thread_info.kernel_sp = (uint64_t)task[i] + PGSIZE;
+        task[i]->thread_info.user_sp = (uint64_t)kalloc();
 
-        uint64_t va = USER_START;
-        uint64 pa = (uint64)(_sramdisk) - PA2VA_OFFSET;
-        create_mapping(task[i]->pgd, va, pa, _eramdisk - _sramdisk, 0x1f);
+        #define STACK_SIZE (PGSIZE << 4)
+        #define UAPP_SIZE (1 << 24) // 16 MiB
 
-        va = USER_END - PGSIZE;
-        pa = (uint64)(task[i]->thread_info->user_sp) - PA2VA_OFFSET;
-        create_mapping(task[i]->pgd, va, pa, PGSIZE, 0x17);
+        uint64_t va = USER_END - STACK_SIZE;
+        uint64_t pa = (uint64)(task[i]->thread_info.user_sp) - PA2VA_OFFSET;
+        create_mapping(task[i]->pgd, va, pa, STACK_SIZE, 0x17);
+
+                
+        #define ELF
+        #ifndef ELF
+
+        va = USER_START;
+        pa = (uint64)(_sramdisk) - PA2VA_OFFSET;
+        create_mapping(task[i]->pgd, va, pa, UAPP_SIZE, 0x1f);
+
+        #else
+
+        Elf_Ehdr *header = (void *) _sramdisk;
+        //  fs_lseek(target_fd, 0, SEEK_SET);
+        Elf_Half phnum = header->e_phnum;
+        Elf_Off phoff = header->e_phoff;
+        while (phnum--) {
+            Elf_Phdr *segment = (void *) _sramdisk + phoff;
+            phoff += header->e_phentsize;
+            printk("Segment at 0x%08x with memory size 0x%06x\n", segment->p_vaddr, segment->p_memsz);
+            if (!(segment->p_type == PT_LOAD)) {
+                printk("Not a PT_LOAD segment, ignoring...\n");
+                continue;
+            }
+            
+            void *file_pt = _sramdisk + segment->p_offset;
+            #define MIN(a, b) ((a) < (b) ? (a) : (b))
+            #define CEIL(sza, szb) ((((sza) + ((szb) - 1)) & (~((szb) - 1))) / PGSIZE)
+            #define ROUNDUP(a, sz)      ((((uint64_t)a) + (sz) - 1) & ~((sz) - 1))
+            #define ROUNDDOWN(a, sz)    ((((uint64_t)a)) & ~((sz) - 1))
+
+            // printk("%d\n", CEIL(segment->p_memsz, PGSIZE));
+            if ((segment->p_vaddr & (PGSIZE - 1))) {
+                printk("Not a page aligned segment! Trying to fix...");
+                uint64_t pg_off = segment->p_vaddr & (PGSIZE - 1);
+                printk("offset at 0x%08x\n", pg_off);
+                uint64_t pg_start = ROUNDDOWN(segment->p_vaddr, PGSIZE);
+                uint64_t n_pgpa = kalloc();
+                create_mapping(task[i]->pgd, pg_start, n_pgpa - PA2VA_OFFSET, PGSIZE, 0x1f);
+                memset((void *) (n_pgpa + pg_off), 0, MIN(PGSIZE - pg_off, segment->p_memsz));
+                memcpy((void *) (n_pgpa + pg_off), file_pt, MIN(PGSIZE - pg_off, segment->p_filesz));
+                file_pt += MIN(PGSIZE - pg_off, segment->p_filesz);
+                segment->p_vaddr = ROUNDUP(segment->p_vaddr, PGSIZE);
+                segment->p_memsz -= MIN(PGSIZE - pg_off, segment->p_memsz);
+                segment->p_filesz -= MIN(PGSIZE - pg_off, segment->p_filesz);
+                printk("Rest at %x with size 0x%06x\n", segment->p_vaddr, segment->p_memsz);
+            }
+
+            int j = i;
+            for (int i = 0; i < CEIL(segment->p_memsz, PGSIZE); i++) {
+                // printk("%d\n", i);
+                uint64_t n_pgpa = kalloc();
+                create_mapping(task[j]->pgd, segment->p_vaddr + i * PGSIZE, n_pgpa - PA2VA_OFFSET, PGSIZE, 0x1f);
+                
+                printk("Memset: 0x%08x bytes\n", MIN(PGSIZE, segment->p_memsz - PGSIZE * i));
+                memset((void *) n_pgpa, 0, MIN(PGSIZE, segment->p_memsz - PGSIZE * i));
+                //Avoid negative number!!!
+                printk("Read from elf: 0x%08x bytes\n", MIN(PGSIZE, segment->p_filesz - MIN(PGSIZE * i, segment->p_filesz)));
+                memcpy((void *) n_pgpa, file_pt, MIN(PGSIZE, segment->p_filesz - MIN(PGSIZE * i, segment->p_filesz)));
+                file_pt += MIN(PGSIZE, segment->p_filesz - MIN(PGSIZE * i, segment->p_filesz));
+            }
+            printk("Load finished\n");
+        }
+        #endif
 
         uint64 satp = csr_read(satp);
         satp = (satp >> 44) << 44; // 清空 PPN
         satp |= ((uint64)(task[i]->pgd) - PA2VA_OFFSET) >> 12;
         task[i]->satp = satp;
-
 
         /*********************/
         task[i]->state = TASK_RUNNING;

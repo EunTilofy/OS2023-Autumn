@@ -16,6 +16,8 @@ static inline long getpid() {
 int main() {
     register unsigned long current_sp __asm__("sp");
     while (1) {
+        // putc('x');
+        // putc('\n');
         printf("[U-MODE] pid: %ld, sp is %lx, this is print No.%d\n", getpid(), current_sp, ++counter);
         for (unsigned int i = 0; i < 0x4FFFFFFF; i++);
     }

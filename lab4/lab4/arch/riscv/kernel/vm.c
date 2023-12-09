@@ -67,7 +67,7 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
     可以使用 V bit 来判断页表项是否存在
     */
     uint64 *now_pgtbl, *nex_pgtbl;
-    for(int i = 0, num = sz / PGSIZE; i < num; ++i, va += PGSIZE, pa += PGSIZE) {
+    for(int i = 0, num = (sz + PGSIZE - 1) / PGSIZE; i < num; ++i, va += PGSIZE, pa += PGSIZE) {
         uint64 vpn2 = VPN2(va), vpn1 = VPN1(va), vpn0 = VPN0(va);
         now_pgtbl = pgtbl;
         // first level

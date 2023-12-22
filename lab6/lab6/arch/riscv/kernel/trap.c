@@ -24,6 +24,83 @@ extern unsigned long swapper_pg_dir[];
 extern struct task_struct* task[];
 extern struct task_struct* current;
 
+void clone(struct pt_regs *regs) {
+    int new_pid;
+    for (new_pid = 1; new_pid < NR_TASKS; new_pid++) {
+        if (task[new_pid] == NULL) break;
+    }
+    if (new_pid == NR_TASKS) {
+        printk("TASK FULL");
+        return ;
+    }
+    task[new_pid] = (struct task_struct *) kalloc();
+    memcpy(task[new_pid], current, PGSIZE);
+    task[new_pid]->counter = task_test_counter[new_pid];
+    task[new_pid]->priority = task_test_priority[new_pid];
+    task[new_pid]->thread.ra = (uint64_t) __ret_from_fork_debug;
+    task[new_pid]->thread.sp = ((uint64_t) regs) - ((uint64_t) current) + ((uint64_t) task[new_pid]);
+    struct pt_regs *nregs = (struct pt_regs *) (((uint64_t) regs) - ((uint64_t) current) + ((uint64_t) task[new_pid]));
+    nregs->x[10] = 0;
+    // no need to adjust context sp (user sp)
+    // nregs->x[2] = 
+    nregs->sepc = regs->sepc + 4;
+    task[new_pid]->thread.sscratch = 0;
+    // status? no much problem
+
+    #define NXTPGT(pde) (pagetable_t) ((((pde) >> 10) << 12) + PA2VA_OFFSET)
+    #define MKPDE(page_va) (((((page_va) - PA2VA_OFFSET) >> 12) << 10) | 0x1)
+    #define GETPERM(pte) ((pte) & 0x3fe)
+    #define MKPTE(page_va, perm) (((((page_va) - PA2VA_OFFSET) >> 12) << 10) | perm | 0x1)
+    #define GETPGVA(pte) ((((pte >> 10) << 12)) + PA2VA_OFFSET)
+
+    
+    // create root pgt
+    task[new_pid]->pgd = (pagetable_t) kalloc();
+    task[new_pid]->pid = new_pid;
+    task[new_pid]->state = TASK_RUNNING;
+    uint64 satp = csr_read(satp);
+    satp = (satp >> 44) << 44;
+    satp |= ((uint64)(task[new_pid]->pgd) - PA2VA_OFFSET) >> 12;
+    task[new_pid]->satp = satp;
+    memcpy(task[new_pid]->pgd, swapper_pg_dir, PGSIZE);
+
+    for (int i = VPN2(USER_START); i < VPN2(USER_END); i++) {
+        // need to copy
+        if (current->pgd[i] & 0x1) {
+
+            uint64_t n_pgpa = kalloc();
+            pagetable_t sec_pgtbl = NXTPGT(current->pgd[i]);
+
+            // make this pde
+            task[new_pid]->pgd[i] = MKPDE(n_pgpa);
+            pagetable_t sec_pgtbl_n = (pagetable_t) n_pgpa;
+            
+
+            for (int j = 0; j < PGSIZE / sizeof(pagetable_t); j++) {
+                if (sec_pgtbl[j] & 0x1) {
+                    n_pgpa = kalloc();
+                    pagetable_t thi_pgtbl = NXTPGT(sec_pgtbl[j]);
+                    
+                    sec_pgtbl_n[j] = MKPDE(n_pgpa);
+                    pagetable_t thi_pgtbl_n = (pagetable_t) n_pgpa;
+
+                    for (int k = 0; k < PGSIZE / sizeof(pagetable_t); k++) {
+                        if (thi_pgtbl[k] & 0x1) {
+                            n_pgpa = kalloc();
+                            thi_pgtbl_n[k] = MKPTE(n_pgpa, GETPERM(thi_pgtbl[k]));
+                            memcpy((void *) n_pgpa, (void *) GETPGVA(thi_pgtbl[k]), PGSIZE);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // task[new_pid]->thread.sepc
+    regs->x[10] = new_pid;
+    return ;
+}
+
 void syscall(struct pt_regs* regs) {
     if(regs->x[17]==SYS_WRITE) {
         if(regs->x[10]) {
@@ -33,6 +110,8 @@ void syscall(struct pt_regs* regs) {
         }
     } else if(regs->x[17] == SYS_GETPID) {
         regs->x[10] = current->pid;
+    } else if (regs->x[17] == SYS_CLONE) {
+        clone(regs);
     } else {
         printk("UNHANDLED SYSCALL %llu\n", regs->x[17]);
     }
